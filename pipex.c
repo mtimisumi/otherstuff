@@ -1,93 +1,157 @@
-// /* ************************************************************************** */
-// /*                                                                            */
-// /*                                                        :::      ::::::::   */
-// /*   pipex.c                                            :+:      :+:    :+:   */
-// /*                                                    +:+ +:+         +:+     */
-// /*   By: mmisumi <mmisumi@student.42.fr>            +#+  +:+       +#+        */
-// /*                                                +#+#+#+#+#+   +#+           */
-// /*   Created: 2025/03/19 13:48:32 by mmisumi           #+#    #+#             */
-// /*   Updated: 2025/03/20 19:00:08 by mmisumi          ###   ########.fr       */
-// /*                                                                            */
-// /* ************************************************************************** */
+/* ************************************************************************** */
+/*                                                                            */
+/*                                                        :::      ::::::::   */
+/*   pipex.c                                            :+:      :+:    :+:   */
+/*                                                    +:+ +:+         +:+     */
+/*   By: mmisumi <mmisumi@student.42.fr>            +#+  +:+       +#+        */
+/*                                                +#+#+#+#+#+   +#+           */
+/*   Created: 2025/04/04 15:45:19 by mmisumi           #+#    #+#             */
+/*   Updated: 2025/04/10 19:51:25 by mmisumi          ###   ########.fr       */
+/*                                                                            */
+/* ************************************************************************** */
 
-// #include "pipex.h"
+#include "pipex.h"
 
-// #define CHILD 0
-// #define READ 0
-// #define WRITE 1
+#define CHILD 0
+#define READ 0
+#define WRITE 1
 
-// char	*get_env(char **envp)
-// {
-// 	char	*env = NULL;
-// 	int		i;
 
-// 	i = 0;
-// 	while (envp[i])
-// 	{
-// 		if (ft_strncmp(envp[i], "PATH=", 5) == 0)
-// 			env = envp[i] + 5;
-// 		else
-// 			i++;
-// 	}
-// 	// if (!env)//so if PATH= was never found
-// 	// 	return (write(STDERR_FILENO, "no env found\n", 13), );
-// 	if (!env)//so if PATH= was never found
-// 	{
-// 		write(STDOUT_FILENO, "no env found\n", 13);
-// 		exit(127);
-// 	}
-// 	return (env);
-// }
+void perror_free_exit(const char *msg, char **cmd_flags, int exit_code)
+{
+	int	i;
 
-// char	*get_cmd(char *cmd, char **envp)
-// {
-// 	char	*env;
-// 	char	**paths;
-// 	char	*path;
-// 	int		i;
+	i = 0;
+	perror(msg);
+	while (cmd_flags && cmd_flags[i])
+	{
+		free(cmd_flags[i]);
+		i++;
+	}
+	exit(exit_code);
+}
+void	child_process_one(int *pip, char **argv, char **envp)
+{
+	int		infile;
+	char	*cmd;
+	char	**cmd_flags;
+	
+	close(pip[READ]);
+	infile = open(argv[1], O_RDONLY);
+	if (infile == -1)
+		perror_free_exit("Error opening infile\n", NULL, 0);
+	dup2(infile, STDIN_FILENO);
+	close(infile);
+	dup2(pip[WRITE], STDOUT_FILENO);
+	close(pip[WRITE]);
+	cmd_flags = ft_split(argv[2], ' ');
+	if (cmd_flags == NULL)
+		perror_free_exit("Error splitting cmd1\n", NULL, 1);
+	cmd = get_cmd(cmd_flags[0], envp);
+	if (cmd != NULL)
+	{
+		if (access(cmd, X_OK) == -1)
+			perror_free_exit("Error executing cmd1\n", cmd_flags, 126);
+		execve(cmd, cmd_flags, envp);
+		perror_free_exit("Error executing cmd1\n", cmd_flags, 1);
+	}
+	perror_free_exit("Invalid cmd1\n", cmd_flags, 127);
+}
 
-// 	i = 0;
-// 	env = get_env(envp);
-// 	paths = ft_split(path, ':');
-// 	while (paths[i])
-// 	{
-// 		path = ft_strjoin(paths[i], "/", cmd);
-// 		if (access(path, R_OK) == 0)
-// 			return (path);//i should free other paths
-// 		else
-// 		{
-// 			free(path);
-// 			i++;
-// 		}
-// 	}
-// 	return (NULL);//maybe free also if cmd was never found
-// }
+void	child_process_two(int *pip, char **argv, char **envp)
+{
+	int		outfile;
+	char	*cmd;
+	char	**cmd_flags;
+	
+	close(pip[WRITE]);
+	outfile = open(argv[4], O_WRONLY | O_CREAT | O_TRUNC, 0644);
+	if (outfile == -1)
+		perror_free_exit("Error opening outfile\n", NULL, 0);
+	dup2(pip[READ], STDIN_FILENO);
+	close(pip[READ]);
+	dup2(outfile, STDOUT_FILENO);
+	close(outfile);
+	cmd_flags = ft_split(argv[3], ' ');
+	if (cmd_flags == NULL)
+		perror_free_exit("Error splitting cmd2\n", NULL, 1);
+	cmd = get_cmd(cmd_flags[0], envp);
+	if (cmd != NULL)
+	{
+		if (access(cmd, X_OK) == -1)
+			perror_free_exit("Error executing command", cmd_flags, 126);
+		execve(cmd, cmd_flags, envp);
+		perror_free_exit("Error executing cmd2\n", cmd_flags, 1);
+	}
+	perror_free_exit("Invalid cmd2\n", cmd_flags, 127);
+}
+
+int	pipex(char **argv, char **envp)
+{
+	int		pip[2];
+	pid_t	pid1;
+	pid_t	pid2;
+	int		status;
+	
+	if (pipe(pip) == -1)
+		perror_free_exit("Error creating pipe\n", NULL, 1);
+	pid1 = fork();
+	if (pid1 == -1)
+		perror_free_exit("Error forking pid1\n", NULL, -1);
+	if (pid1 == CHILD)
+		child_process_one(pip, argv, envp);
+	close(pip[WRITE]);
+	pid2 = fork();
+	if (pid2 == -1)
+		perror_free_exit("Error forking pid2\n", NULL, -1);
+	if (pid2 == CHILD)
+		child_process_two(pip, argv, envp);
+	close(pip[READ]);
+	status = 0;
+	waitpid(pid1, NULL, 0);
+	waitpid(pid2, &status, 0);
+	if (WIFEXITED(status))
+		return (WEXITSTATUS(status));
+	return (0);
+}
+
+int	main(int argc, char *argv[], char *envp[])
+{
+	if (argc != 5)
+	{
+		write(STDERR_FILENO, "invalid amount of arguments\n", 28);
+		return (0);
+	}
+	return (pipex(argv, envp));
+}
+
 
 // void	child_process_one(int *pip, char **argv, char **envp)
 // {
 // 	int		infile;
 // 	char	*cmd;
-// 	char 	**cmd_flags;
-
+// 	char	**cmd_flags;
+	
+// 	close(pip[READ]);
 // 	infile = open(argv[1], O_RDONLY);
 // 	if (infile == -1)
-// 	{
-// 		perror("no valid infile\n");
-// 		exit(0);
-// 	}
+// 		perror_exit("Error opening infile\n", 0);
 // 	dup2(infile, STDIN_FILENO);
 // 	close(infile);
-// 	pipe(pip);
-// 	close(pip[READ]);
 // 	dup2(pip[WRITE], STDOUT_FILENO);
 // 	close(pip[WRITE]);
+// 	if (cmd_flags == NULL)
+// 	perror_exit("Error splitting cmd1\n", 1);
 // 	cmd_flags = ft_split(argv[2], ' ');
 // 	cmd = get_cmd(cmd_flags[0], envp);
-// 	if (execve(cmd, cmd_flags, envp) == -1)
+// 	if (cmd != NULL)
 // 	{
-// 		perror("cmd1 fail");
-// 		exit(1);
+// 		if (access(cmd, X_OK) == -1)
+// 			perror_exit("Error executing cmd1\n", 126);
+// 		execve(cmd, cmd_flags, envp);
+// 		perror_exit("Error executing cmd1\n", 1);
 // 	}
+// 	perror_exit("Invalid cmd1\n", 127);
 // }
 
 // void	child_process_two(int *pip, char **argv, char **envp)
@@ -95,50 +159,65 @@
 // 	int		outfile;
 // 	char	*cmd;
 // 	char	**cmd_flags;
-
+	
+// 	close(pip[WRITE]);
 // 	outfile = open(argv[4], O_WRONLY | O_CREAT | O_TRUNC, 0644);
 // 	if (outfile == -1)
-// 	{
-// 		perror("error with outfile\n");
-// 		exit(0);
-// 	}
-// 	dup2(outfile, STDOUT_FILENO);
-// 	close(outfile);
+// 		perror_exit("Error opening outfile\n", 0);
 // 	dup2(pip[READ], STDIN_FILENO);
 // 	close(pip[READ]);
+// 	dup2(outfile, STDOUT_FILENO);
+// 	close(outfile);
 // 	cmd_flags = ft_split(argv[3], ' ');
+// 	if (cmd_flags == NULL)
+// 		perror_exit("Error splitting cmd2\n", 1);
 // 	cmd = get_cmd(cmd_flags[0], envp);
-// 	if (execve(cmd, cmd_flags, envp) == -1)
+// 	if (cmd != NULL)
 // 	{
-// 		perror("cmd2 fail");
-// 		exit(127);
+// 		if (access(cmd, X_OK) == -1)
+// 			perror_exit("Error executing command", 126);
+// 		execve(cmd, cmd_flags, envp);
+// 		perror_exit("Error executing cmd2\n", 1);
 // 	}
+// 	perror_exit("Invalid cmd2\n", 127);
 // }
 
-
-// int	main(int argc, char *argv[], char *envp[])
+// int	pipex(char **argv, char **envp)
 // {
 // 	int		pip[2];
 // 	pid_t	pid1;
 // 	pid_t	pid2;
 // 	int		status;
-// 	// int		exitcode;
-
-// 	if (argc != 5)
-// 		return (write(STDERR_FILENO, "not good amount of arguments\n", 29), -1);
+	
+// 	if (pipe(pip) == -1)
+// 		perror_exit("Error creating pipe\n", 1);
 // 	pid1 = fork();
 // 	if (pid1 == -1)
-// 		return (write(STDERR_FILENO, "forking pid1 failed\n", 20), -1);
+// 		perror_exit("Error forking pid1\n", -1);
 // 	if (pid1 == CHILD)
-// 		child_process_one(&pip[2], argv, envp);
+// 		child_process_one(pip, argv, envp);
+// 	close(pip[WRITE]);
 // 	pid2 = fork();
 // 	if (pid2 == -1)
-// 		return (write(STDERR_FILENO, "forking pid2 failed\n", 20), -1);
+// 		perror_exit("Error forking pid2\n", -1);
 // 	if (pid2 == CHILD)
-// 		child_process_two(&pip[2], argv, envp);
-// 	waitpid(pid2, &status, WNOHANG);//only one waitpid because stdout of child one is needed for stdin for child two, and WHOHANG that if something goes wrong to not wait for this
-// 	// if (WIFEXITED(status))
-// 	// 	exitcode = WEXITSTATUS(status);
-// 	// return (exitcode);
+// 		child_process_two(pip, argv, envp);
+// 	close(pip[READ]);
+// 	status = 0;
+// 	waitpid(pid1, NULL, 0);
+// 	waitpid(pid2, &status, 0);
+// 	if (WIFEXITED(status))
+// 		return (WEXITSTATUS(status));
 // 	return (0);
 // }
+
+// int	main(int argc, char *argv[], char *envp[])
+// {
+// 	if (argc != 5)
+// 	{
+// 		write(STDERR_FILENO, "invalid amount of arguments\n", 28);
+// 		return (0);
+// 	}
+// 	return (pipex(argv, envp));
+// }
+

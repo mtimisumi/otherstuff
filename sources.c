@@ -5,8 +5,8 @@
 /*                                                    +:+ +:+         +:+     */
 /*   By: mmisumi <mmisumi@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2025/03/19 15:40:29 by mmisumi           #+#    #+#             */
-/*   Updated: 2025/03/28 16:55:00 by mmisumi          ###   ########.fr       */
+/*   Created: 2025/02/10 17:14:54 by mmisumi           #+#    #+#             */
+/*   Updated: 2025/04/10 20:13:05 by mmisumi          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -15,6 +15,7 @@
 size_t	ft_strlen(const char *s)
 {
 	size_t	i;
+
 	i = 0;
 	if (s == NULL)
 		return (0);
@@ -23,21 +24,22 @@ size_t	ft_strlen(const char *s)
 	return (i);
 }
 
-int ft_strlcpy(char *dst, const char *src, size_t size)
+int	ft_strlcpy(char *dst, const char *src, size_t size)
 {
-    size_t  i;
-    size_t  len;
-    len = ft_strlen(src);
-    i = 0;
-    if (size == 0)
-        return (len);
-    while (src[i] != '\0' && i < size - 1)
-    {
-        dst[i] = src[i];
-        i++;
-    }
-    dst[i] = '\0';
-    return (len);
+	size_t	i;
+	size_t	len;
+
+	len = ft_strlen(src);
+	i = 0;
+	if (size == 0)
+		return (len);
+	while (src[i] != '\0' && i < size - 1)
+	{
+		dst[i] = src[i];
+		i++;
+	}
+	dst[i] = '\0';
+	return (len);
 }
 
 char	*ft_strdup(const char *s)
@@ -183,6 +185,33 @@ char	*ft_strjoin(char const *s1, char const *s2)
 	return (newstring);
 }
 
+// char	*ft_strjoin(char const *s1, char const *s2, const char *s3)
+// {
+// 	int		i;
+// 	char	*newstring;
+
+// 	newstring = malloc((ft_strlen(s1) + ft_strlen(s2) + ft_strlen(s3) + 1));
+// 	if (newstring == NULL)
+// 		return (NULL);
+// 	i = 0;
+// 	while (s1[i])
+// 	{
+// 		newstring[i] = s1[i];
+// 		i++;
+// 	}
+// 	while (*s2)
+// 	{
+// 		newstring[i++] = *s2;
+// 		s2++;
+// 	}
+// 	while (*s3)
+// 	{
+// 		newstring[i++] = *s3;
+// 		s3++;
+// 	}
+// 	newstring[i] = '\0';
+// 	return (newstring);
+// }
 
 int	ft_strncmp(const char *s1, const char *s2, size_t n)
 {
